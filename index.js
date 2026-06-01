@@ -22,7 +22,12 @@ app.post('/generate', async (req, res) => {
       })
     });
     const data = await response.json();
-    res.json({ result: data.content[0].text });
+    console.log('Anthropic response:', JSON.stringify(data));
+    if (data.content && data.content[0]) {
+      res.json({ result: data.content[0].text });
+    } else {
+      res.status(500).json({ error: 'Bad response', detail: data });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
