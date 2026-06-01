@@ -1,8 +1,32 @@
-import { registerRootComponent } from 'expo';
+const express = require('express');
+const cors = require('cors');
+const app = express();
 
-import App from './App';
+app.use(cors());
+app.use(express.json());
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
+app.post('/generate', async (req, res) => {
+  const { prompt } = req.body;
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    res.json({ result: data.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(process.env.PORT || 3000);
+console.log('Tweakr server running');
