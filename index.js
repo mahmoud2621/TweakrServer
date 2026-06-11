@@ -1,11 +1,38 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
+// Rate limiting setup
+const requestCounts = {};
+const RATE_LIMIT = 20;
+const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  if (!requestCounts[ip]) {
+    requestCounts[ip] = { count: 1, resetAt: now + WINDOW_MS };
+    return false;
+  }
+  if (now > requestCounts[ip].resetAt) {
+    requestCounts[ip] = { count: 1, resetAt: now + WINDOW_MS };
+    return false;
+  }
+  if (requestCounts[ip].count >= RATE_LIMIT) {
+    return true;
+  }
+  requestCounts[ip].count++;
+  return false;
+}
+
 app.post('/generate', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ error: 'rate_limited' });
+  }
+
   const { prompt } = req.body;
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
